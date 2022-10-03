@@ -1,0 +1,31 @@
+1. What is the purpose of this code? What does the code compute to get it?
+
+   La función Dgesv resuelve la X en un sistema de matrices tal que A * X = B. Para eso utiliza la descomposición LU, es decir, factoriza las matrices al convertirlas en productos de matrices triangulares inferiores y superiores.
+   
+Dgesv requiere como parámetros las matrices A y B completas en forma de una única fila, así como el tamaño de la matriz (filas y columnas). Con esto es suficientes para realizar la operación completa de hallar la matriz X.
+
+2. Briefly describe alternative mathematical methods to perform the same operation.
+
+   Matemáticamente para esta operación existen varios métodos. La clave es entender que las matrices tienen distintas propiedades al resto de las operaciones. Por ejemplo, para despejar la X en A*X=B no es factible dividir ambos términos entre A y obtener X = B/A, pues no funciona así. Sí es posible multiplicar a ambos lados del igual por la inversa de A. De manera que A^-1 * A * X = A^-1 * B; lo que es igual a X = A^1 * B
+   
+De esta forma, una de las maneras de hallar la X es conseguir la inversa de la matriz A y multiplicarla por B.
+
+Para ello es posible utilizar el método de Gauss. De forma resumida, este nos permite despejar una matriz de forma sistemática de forma que el elemento inferior tenga un único término entero (el resto serán ceros), que nos permite despejar el penúltimo (que tendrá dos) y así sucesivamente. Esto se produce tras operar, dadas propiedades elementales de las matrices como que no cambia si las filas se multiplican íntegramente por un escalar, se pueden sumar o restar filas entre ellas o al multiplicarla por la matriz identidad es idéntica. El método de Gauss-Jordan sigue un patrón similar.
+
+Para hallar la matriz inversa es posible hacerlo con determinantes, pero con una matriz que supere 3x3 es necesario utilizar la regla de Laplace, que se llama de forma recursiva para ir calculando los determinantes de los términos y hacer matrices cada vez más pequeñas.
+
+También podría ser posible multiplicar la matriz A por una matriz columna con tantos términos como incógnitas, pero no es factible para el caso, dado que B es una matriz cuadrada, con las mismas filas y columnas que A.
+
+3. What alternative(s) do you think is more demanding, from a computational point of view and in terms of memory consumption?
+
+   Considero que computacionalmente la alternativa más costosa puede ser la que implica la regla de Laplace, pues se producen llamadas recursivas a la regla para hacer submatrices hasta llegar a matrices 2x2. En caso de trabajar con elementos de cientos o miles de filas y columnas, habría una cantidad ingente de submatrices en bucle, pues cada una tiene un término menos que la anterior hasta llegar al 2x2, con sus respectivos determinantes que posteriormente hay que operar.
+
+
+4. What do you think can be the best candidate(s) for a parallel implementation?
+
+   Creo que una resolución por Gauss puede ser eficiente si se paraleliza. En concreto, podrían hacerse simultáneas todas las igualaciones a cero de la misma columna, pues dependen de una única fila (para la primera columna, solo la primera fila, y así sucesivamente).
+
+
+5. Choose one of the described methods to code your own sequential implementation in C, using the provided code skeleton.
+
+   La opción elegida es la de encontrar la matriz inversa por Gauss y posteriormente multiplicar esta matriz inversa por B y hallar X.
