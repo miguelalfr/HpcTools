@@ -1,0 +1,65 @@
+Tiempos de ejecución (promedio de 3 pruebas en nodo de computación con 32 núcleos):
+
+No opt. Options: -O0
+ICC
+Exec time (small): 14,41 segundos
+Exec time (medium): 164,41 segundos
+Exec time (large): 1.697,18 segundos
+GCC
+Exec time (small): 14,65 segundos
+Exec time (medium): 168,69 segundos
+Exec time (large): 1.704,57 segundos
+
+Opt level O1 Options: -O1
+ICC
+Exec time (small): 5,13 segundos
+Exec time (medium): 67,57 segundos
+Exec time (large): 895,04 segundos
+GCC
+Exec time (small): 5,22 segundos
+Exec time (medium): 66,20 segundos
+Exec time (large): 896,79 segundos
+
+Opt level O2 Options: -O2
+ICC
+Exec time (small): 1,83 segundos
+Exec time (medium): 17,67 segundos
+Exec time (large): 156,56 segundos
+GCC
+Exec time (small): 5,07 segundos
+Exec time (medium): 65,76 segundos
+Exec time (large): 872,52 segundos
+
+Opt level O3 Options: -O3
+ICC
+Exec time (small): 1,66 segundos
+Exec time (medium): 18,33 segundos
+Exec time (large): 151,93 segundos
+GCC
+Exec time (small): 4,60 segundos
+Exec time (medium): 59,77 segundos
+Exec time (large): 839,94 segundos
+
+Opt level Ofast Options: -Ofast
+ICC
+Exec time (small): 1,63 segundos
+Exec time (medium): 18,27 segundos
+Exec time (large): 151,8 segundos
+GCC
+Exec time (small): 4,58 segundos
+Exec time (medium): 55,74 segundos
+Exec time (large): 794,88 segundos
+
+Las pruebas han sido realizadas en un nodo de computación con 32 núcleos y los resultados son el promedio de tres ejecuciones.
+
+En primer lugar, es necesario comentar que para estos resultados he modificado algunos puntos del código correspondiente a la primera actividad. El primero de los cambios está relacionado con la formulación de las matrices que utilizamos en nuestra función dgesv. En el primer caso pasábamos las matrices originales a otras bidimensionales para definir las filas y las columnas, pues me resultaba más sencillo para plantear. Sin embargo, ahora lo hacemos en un único array unidimensional, tal como venía definido para el otro dgesv, al que accedemos a las posiciones al multiplicar el índice de la fila por el número total de filas y sumarle el número correspondiente a la columna. Con esto logramos por un lado el código más limpio, reducir la memoria utilizada y una reserva de memoria más eficiente con nuestras nuevas matrices de respuesta, en las que también empleamos malloc, que antes no utilizábamos.
+
+Otro cambio eficiente en el código está en el hecho de que ya no son necesarios los bucles que trasformaban las matrices originales en bidimensionales y luego convertían la matriz respuesta en unidimensional, por lo que eliminamos tres bucles anidados bastante largos. Prescindimos de algunas variables destinadas a los índices y en los bucles de operación, optimizamos los accesos al impedir que se haga el recorrido completo cuando no es necesario, como cuando se opera hasta la diagonal, que en la primera fila solo se recorrerá el primer elemento, en la segunda los dos primeros y así sucesivamente, mientras que antes se recorrían las filas completas y se comprobaba con un if en cada caso.
+
+Con estos cambios y tras realizar las compilaciones con las optimizaciones, notamos unas mejorías de tiempo muy notables, en especial con la opción ICC. Pasamos en el caso más desfavorable, el de la matriz de 4096x4096, de un tiempo de ejecución que roza la media hora (1.700 segundos, que son algo más de 28 minutos) a uno que apenas supera los dos minutos y medio (151 segundos). Es una mejora de 11 con respecto al tiempo inicial, lo que resulta muy notable. También se produce una mejora notable en GCC, pero esta pasa a poco menos de la mitad del tiempo original, por lo que no es tan llamativa.
+
+En los primeros niveles, vemos una mejora continua de los tiempos, pero no demasiado llamativa. Eso es porque O1 y O2  en GCC y O1 en ICC habilitan opciones de optimización de velocidad, pero entran en la vectorización de los bucles. Es decir, hacen que el código sea más eficiente con diversas técnicas, como la mejora también en la distribución de memoria, pero en nuestro código gran parte de la carga la llevan los bucles. Estos bucles ya se empiezan a vectorizar en O2 en ICC y en O3 en GCC, una cuestión que sigue en Ofast, que es O3 con un flag de velocidad añadido.
+
+Parece que, por tanto, la clave es precisamente esta vectorización. En nuestro bucles se dan las condiciones para su ejecución en paralelo, pues la mayoría de las iteraciones son independientes entre ellas con la condición de que se respete el orden entre los bucles y exista una barrera implícita entre su ejecución. Aunque es posible operar cada fila independientemente de las demás, tal como tenemos definido el código, sí deben operarse de arriba hacia abajo y posteriormente las columnas tienen más libertad. Este hecho hace que los tiempos todavía sean largos incluso con ejecución paralela. A la hora de multiplicar las matrices, ahora ya sí cada elemento de la nueva matriz se puede hallar sin tener en cuenta ninguno de los otros. Cuando se pasa la matriz respuesta a un nuevo array, también los términos son totalmente independientes. Esto hace posible la vectorización sencilla que aumenta de forma notable la velocidad.
+
+A la hora de analizar la caché, al vectorizar (con las opciones más eficientes) también se vectoriza, además de nuestro dgesv, la función que crea las matrices a y b. Esto hace que el reparto de sus elementos en la memoria esté distribuido desde el principio y, cuando se ejecutan los bucles del dgesv, si bien esto no es seguro, es probable que el orden de ejecución sea similar al del reparto de los elementos en memoria, lo que en una máquina NUMA hace el acceso más rápido y eficiente a cada uno de los elementos.
